@@ -1,0 +1,26 @@
+=== Background
+
+This Rails plugin allows you to execute code blocks in a background task with a very intuitive and easy syntax.
+It is as easy as that:
+
+   background do
+     # do some time-consuming task
+   end
+
+Refer to the Kernel#background documentation for details.
+
+=== Dependencies
+
+There are no dependencies besides ActiveSupport, which is required by Rails anyways.
+
+=== Credits
+
+This plugin uses the proc_source.rb file by Florian Gro, found here:
+
+  http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-talk/147706?help-en
+
+=== Installation
+
+Just copy the background folder into vendor/plugins, and you're good to go.
+
+Copyright (c) 2008 imedo GmbH, released under the MIT license
