@@ -9,16 +9,18 @@ module Background #:nodoc:
     cattr_accessor :fail_next_time
     # True, if TestHandler#handle was executed.
     cattr_accessor :executed
+    # Stores the last options hash given to handle
+    cattr_accessor :options
     
     # Does not call the block, but sets some variables for introspection.
-    def self.handle(locals, &block)
+    def self.handle(locals, options = {}, &block)
       self.executed = true
       if self.fail_next_time
         self.fail_next_time = false
         raise "TestHandler.handle: Failed on purpose"
       end
       
-      self.locals, self.block = locals, block
+      self.locals, self.options, self.block = locals, options, block
     end
     
     # Returns the object from which the block was sent to the handler.
@@ -33,7 +35,7 @@ module Background #:nodoc:
     
     # Resets the class' accessors.
     def self.reset
-      locals = block = fail_next_time = executed = nil
+      locals = options = block = fail_next_time = executed = nil
     end
   end
 end

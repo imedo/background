@@ -11,8 +11,7 @@ end
 
 class BackgroundTest < Test::Unit::TestCase
   def setup
-    Background::Config.default_handler = :test
-    Background::Config.default_fallback = [:forget]
+    Background::Config.default_handler = [:test, :forget]
     Background::Config.default_error_reporter = :test
   end
   
@@ -75,7 +74,7 @@ class BackgroundTest < Test::Unit::TestCase
   
   def test_should_use_specified_handler_and_fallback
     a = 10
-    actual_handler = background :handler => :in_process, :fallback => :test, :locals => { :a => a } do
+    actual_handler = background :handler => [:in_process, :test], :locals => { :a => a } do
       raise "lala"
     end
     assert_equal "lala", Background::TestErrorReporter.last_error.message
@@ -86,10 +85,18 @@ class BackgroundTest < Test::Unit::TestCase
   
   def test_should_use_fallback_on_failure
     Background::TestHandler.fail_next_time = true
-    actual_handler = background :fallback => :forget do
+    actual_handler = background :handler => [:test, :forget] do
       puts "lala"
     end
     assert_not_nil Background::TestErrorReporter.last_error
     assert_equal :forget, actual_handler
+  end
+  
+  def test_should_use_options_hash_for_handler
+    background :handler => [{:test => { :some_option => 2 }}] do
+      puts "lala"
+    end
+    assert_not_nil Background::TestHandler.options
+    assert_equal 2, Background::TestHandler.options[:some_option]
   end
 end

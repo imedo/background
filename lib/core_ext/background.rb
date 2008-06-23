@@ -44,15 +44,30 @@ module Kernel
   # succeeds, the method returns nil, otherwise the method returns a symbolized name of the first
   # handler, that succeeded in executing the block.
   #
+  # === Choosing a handler
+  #
+  # There are several ways to execute a task in the background. To choose your particular handler
+  # and optionally some fallback handlers, in case the background process doesn't respond, use the
+  # :handler option.
+  #
+  #    background :handler => [:active_messaging, :disk] do
+  #      # your code
+  #    end
+  #
+  # To configure a handler, use a Hash instead of a Symbol like this:
+  #
+  #    background :handler => [{ :active_messaging => { :queue => :my_queue } }, :disk] do
+  #      # your code, going over ActiveMessaging queue :my_queue
+  #    end
+  #
   # === Options
   #
   # handler:: The background handler to use. This option is ignored when using the decoration method.
   #           If none is specified, the Background::Config.default_handler is used. Available handlers
-  #           are :active_messaging, :in_process, :forget, :disk, and :test.
-  #
-  # fallback:: An array containing fallback handlers, that are executed in order on failure. Execution
-  #            is stopped as soon as one handler succeeds. If no fallback option is specified, the
-  #            handlers in Background::Config.default_fallback are used.
+  #           are :active_messaging, :in_process, :forget, :disk, and :test. This option can also be
+  #           an array, in which case all of the handlers are tried in order, until one succeeds. Each
+  #           element of the array may be a Symbol or a hash with one element. If it is a hash, the key
+  #           is the handler name, and the value contains configuration options for the handler.
   #
   # params:: Parameter names of the method to decorate. These parameter names must match the parameter
   #          names of the original method, that is decorated. This option is ignored, when a block is
@@ -67,8 +82,8 @@ module Kernel
   # === Writing own handlers
   #
   # Writing handlers is easy. A background handler class must implement a self.handle method that accepts
-  # a hash containing local variables for the block to execute. An error reporter must implement
-  # a self.report method that accepts an exception object. Note that for most non-fallback handlers
+  # a hash containing local variables as well as an options hash for the block to execute. An error reporter
+  # must implement a self.report method that accepts an exception object. Note that for most non-fallback handlers
   # you need to write a background task that accepts and executes the block. See Background::ActiveMessagingHandler
   # for an example on how to do that.
   #
@@ -90,7 +105,7 @@ module Kernel
       alias_method_chain method, :background do |aliased_target, punctuation|
         self.class_eval %{
           def #{method}_with_background#{punctuation}(#{params.join(', ')})
-            background(:fallback => #{fallback.inspect}, :locals => { #{params.collect {|p| ":#{p} => #{p}" }.join(', ')} }) do
+            background(:locals => { #{params.collect {|p| ":#{p} => #{p}" }.join(', ')} }) do
               #{method}_without_background#{punctuation}(#{params.join(', ')})
             end
           end
@@ -103,13 +118,19 @@ module Kernel
         locals[key] = value.dup rescue value
       end
       locals[:self] = self.dup
-      handler = options.delete(:handler) || Background::Config.default_handler
-      fallback = [options.delete(:fallback) || Background::Config.default_fallback].flatten
+      handler = [options.delete(:handler) || Background::Config.default_handler].flatten
       reporter = options.delete(:reporter) || Background::Config.default_error_reporter
       
-      ([handler] + fallback).each do |hand|
+      handler.each do |hand|
+        options = {}
+        if hand.is_a? Hash
+          raise "Malformed handler options Hash" if hand.keys.size != 1
+          options = hand.values.first
+          hand = hand.keys.first
+        end
+        
         begin
-          "Background::#{hand.to_s.camelize}Handler".constantize.handle(locals, &block)
+          "Background::#{hand.to_s.camelize}Handler".constantize.handle(locals, options, &block)
           return hand
         rescue Exception => e
           "Background::#{reporter.to_s.camelize}ErrorReporter".constantize.report(e)

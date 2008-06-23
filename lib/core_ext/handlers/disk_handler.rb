@@ -6,7 +6,7 @@ module Background #:nodoc:
     cattr_accessor :dirname
     
     # Marshals the block and the locals into a file in the folder specified by dirname.
-    def self.handle(locals, &block)
+    def self.handle(locals, options = {}, &block)
       filename = "background_#{Time.now.to_f.to_s}"
       File.open("#{dirname}/#{filename}", 'w') do |file|
         file.print(Marshal.dump([block, locals]))

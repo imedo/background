@@ -21,8 +21,12 @@ module Background #:nodoc:
     cattr_accessor :queue_name
     
     # Marshals the block and the local variables and sends it through ActiveMQ to the background processor.
-    def self.handle(locals, &block)
-      ActiveMessaging::MessageSender.publish self.queue_name, Marshal.dump([block, locals])
+    #
+    # === Options
+    #
+    # queue:: The name of the queue to use to send the code to the background process.
+    def self.handle(locals, options = {}, &block)
+      ActiveMessaging::MessageSender.publish options[:queue] || self.queue_name, Marshal.dump([block, locals])
     end
   end
 end
