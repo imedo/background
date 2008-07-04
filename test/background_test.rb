@@ -7,6 +7,10 @@ class SomeBackgroundClass
   def add_three(a, b, c)
     a + b + c
   end
+  
+  def puts_something
+    puts "something"
+  end
 end
 
 class BackgroundTest < Test::Unit::TestCase
@@ -62,6 +66,13 @@ class BackgroundTest < Test::Unit::TestCase
     assert obj.respond_to?(:add_three_without_background)
     assert_equal 6, obj.add_three_without_background(1, 2, 3)
     assert_not_equal 6, obj.add_three_with_background(1, 2, 3)
+  end
+  
+  def test_should_decorate_method_without_parameters
+    SomeBackgroundClass.background :puts_something
+    obj = SomeBackgroundClass.new
+    assert obj.respond_to?(:puts_something_with_background)
+    assert obj.respond_to?(:puts_something_without_background)
   end
   
   def test_should_execute_block_with_in_process_handler

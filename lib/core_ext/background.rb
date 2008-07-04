@@ -99,7 +99,7 @@ module Kernel
     if args.first.is_a?(Symbol) && self.is_a?(Class)
       method = args.shift
       options = args.first || {}
-      params = options.delete(:params) || {}
+      params = options.delete(:params) || []
       fallback = [options.delete(:fallback)].flatten
 
       alias_method_chain method, :background do |aliased_target, punctuation|
