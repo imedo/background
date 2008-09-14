@@ -41,7 +41,7 @@ module Background #:nodoc:
     # together with a backtrace to the developers. Refer to the ExceptionNotification
     # documentation for details.
     def self.report(error)
-      ExceptionNotifier.deliver_exception_notification(e, MockController.new, MockRequest.new(e.message), nil)
+      ExceptionNotifier.deliver_exception_notification(error, MockController.new, MockRequest.new(error.message), {})
     end
   end
 end

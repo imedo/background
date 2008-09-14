@@ -1,0 +1,12 @@
+default:
+  :handler:
+  - :in_process:
+
+test:
+  analyze:
+    handler:
+    - :test_handler:
+      :some_option: important
+    - :in_process:
+    - :disk:
+    - :forget:

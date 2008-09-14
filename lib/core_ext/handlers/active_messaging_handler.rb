@@ -26,7 +26,7 @@ module Background #:nodoc:
     #
     # queue:: The name of the queue to use to send the code to the background process.
     def self.handle(locals, options = {}, &block)
-      ActiveMessaging::MessageSender.publish options[:queue] || self.queue_name, Marshal.dump([block, locals])
+      ActiveMessaging::Gateway.publish((options[:queue] || self.queue_name).to_sym, Marshal.dump([block, locals]))
     end
     
     # Decodes a marshalled message which was previously sent over ActiveMQ. Returns an array containing
@@ -47,9 +47,11 @@ module Background #:nodoc:
     # object, with all the other local variables defined.
     def self.execute(message)
       code, obj, variables = self.decode(message)
+      puts "--- executing code: #{code.source}\n--- with variables: #{variables.inspect}\n--- in object: #{obj.inspect}"
 
       obj.send :instance_eval, variables.collect { |key, value| "#{key} = variables[:#{key}]" }.join(';')
       obj.send :instance_eval, code.source
+      puts "--- it happened!"
     end
   end
 end

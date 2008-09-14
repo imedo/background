@@ -79,6 +79,39 @@ module Kernel
   # reporter:: A reporter class that reports errors to the user. Available reporters are :stdout, :silent,
   #            :exception_notification, and :test.
   #
+  # === Background Configurations
+  #
+  # Instead of specifying the :handler: and :reporter: params directly, you can also specify a configuration
+  # for your particular background call, which is configured in RAILS_ROOT/config/background.yml. This file
+  # has the following format:
+  #
+  #    test:
+  #      queue:
+  #        :handler: test
+  #        :reporter: silent
+  #    production
+  #      queue:
+  #        :handler:
+  #        - :active_messaging:
+  #            :queue: background
+  #        :reporter: exception_notification
+  #
+  # You can also specify a default configuration like this:
+  #
+  #    default:
+  #      :handler:
+  #      - :in_process:
+  #      - :disk:
+  #
+  # === Precedence
+  #
+  # For the handler and reporter options, the precedence is as follows, from high to low:
+  #
+  # - method argument
+  # - background.yml configuration, if supplied
+  # - background.yml default configuration
+  # - Background::Config.default_handler / Background::Config.default_error_reporter
+  #
   # === Writing own handlers
   #
   # Writing handlers is easy. A background handler class must implement a self.handle method that accepts
@@ -100,7 +133,7 @@ module Kernel
       method = args.shift
       options = args.first || {}
       params = options.delete(:params) || []
-      fallback = [options.delete(:fallback)].flatten
+      # handler = [options.delete(:handler)].flatten
 
       alias_method_chain method, :background do |aliased_target, punctuation|
         self.class_eval %{
@@ -118,8 +151,15 @@ module Kernel
         locals[key] = value.dup rescue value
       end
       locals[:self] = self.dup
-      handler = [options.delete(:handler) || Background::Config.default_handler].flatten
-      reporter = options.delete(:reporter) || Background::Config.default_error_reporter
+      if options[:config]
+        #puts options[:config]
+        config = (Background::Config.load(options[:config].to_s) || {})
+      else
+        config = {}
+      end
+      #puts config.inspect
+      handler = [options.delete(:handler) || config[:handler] || Background::Config.default_handler].flatten
+      reporter = options.delete(:reporter) || config[:reporter] || Background::Config.default_error_reporter
       
       handler.each do |hand|
         options = {}
