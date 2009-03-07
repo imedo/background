@@ -46,12 +46,17 @@ module Background #:nodoc:
     # Executes a marshalled message which was previously sent over ActiveMQ, in the context of the self
     # object, with all the other local variables defined.
     def self.execute(message)
-      code, obj, variables = self.decode(message)
-      puts "--- executing code: #{code.source}\n--- with variables: #{variables.inspect}\n--- in object: #{obj.inspect}"
+      begin
+        code, obj, variables = self.decode(message)
+        puts "--- executing code: #{code.source}\n--- with variables: #{variables.inspect}\n--- in object: #{obj.inspect}\n--- with instance variables\n #{obj.instance_variables.collect { |v| v + " ==> " + obj.instance_variable_get(v).inspect }.join("\n")}"
 
-      obj.send :instance_eval, variables.collect { |key, value| "#{key} = variables[:#{key}]" }.join(';')
-      obj.send :instance_eval, code.source
-      puts "--- it happened!"
+        obj.send :instance_eval, variables.collect { |key, value| "#{key} = variables[:#{key}]" }.join(';')
+        obj.send :instance_eval, code.source
+        puts "--- it happened!"
+      rescue Exception => e
+        puts e.message
+        puts e.backtrace
+      end
     end
   end
 end

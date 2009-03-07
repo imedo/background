@@ -20,8 +20,33 @@ module Background #:nodoc:
     end
     
     def self.load(configuration)
-      loaded_config = ((config[RAILS_ENV] || {})[configuration] || {})
-      default_config.merge(loaded_config.symbolize_keys || {})
+      if configuration.blank?
+        default_config
+      else
+        loaded_config = ((config[RAILS_ENV] || {})[configuration] || {})
+        default_config.merge(loaded_config.symbolize_keys || {})
+      end
+    end
+  end
+  
+  mattr_accessor :disabled
+  self.disabled = false
+  
+  def self.disable!
+    Background.disabled = true
+  end
+  
+  def self.enable!
+    Background.disabled = false
+  end
+  
+  def self.disable(&block)
+    value = Background.disabled
+    begin
+      Background.disable!
+      yield
+    ensure
+      Background.disabled = value
     end
   end
 end

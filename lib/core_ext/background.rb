@@ -15,7 +15,7 @@ module Kernel
   #      end
   #
   #      # execute all calls to FactorialClass#factorial in the background
-  #      background :factorial, :params => ['number']
+  #      background :factorial
   #    end
   #
   # === Execute a block in the background.
@@ -68,10 +68,6 @@ module Kernel
   #           an array, in which case all of the handlers are tried in order, until one succeeds. Each
   #           element of the array may be a Symbol or a hash with one element. If it is a hash, the key
   #           is the handler name, and the value contains configuration options for the handler.
-  #
-  # params:: Parameter names of the method to decorate. These parameter names must match the parameter
-  #          names of the original method, that is decorated. This option is ignored, when a block is
-  #          given.
   #
   # locals:: A Hash containing name-value-pairs of local variables that need to be accessible to the
   #          block when it is run in the background. This option is ignored when a method is decorated.
@@ -130,35 +126,22 @@ module Kernel
   #   serialized and can be referenced in the block using the self keyword.
   def background(*args, &block)
     if args.first.is_a?(Symbol) && self.is_a?(Class)
-      method = args.shift
-      options = args.first || {}
-      params = options.delete(:params) || []
-      # handler = [options.delete(:handler)].flatten
-
-      alias_method_chain method, :background do |aliased_target, punctuation|
-        self.class_eval %{
-          def #{method}_with_background#{punctuation}(#{params.join(', ')})
-            background(:locals => { #{params.collect {|p| ":#{p} => #{p}" }.join(', ')} }) do
-              #{method}_without_background#{punctuation}(#{params.join(', ')})
-            end
-          end
-        }
-      end
+      # this is for backwards compatibility
+      background_method *args
     else
       options = args.first || {}
       locals = options.delete(:locals) || {}
       locals.each do |key, value|
-        locals[key] = value.dup rescue value
+        locals[key] = value.clone_for_background rescue value
       end
-      locals[:self] = self.dup
-      if options[:config]
-        #puts options[:config]
-        config = (Background::Config.load(options[:config].to_s) || {})
+      locals[:self] = self.clone_for_background
+      
+      config = (Background::Config.load(options[:config].to_s) || {})
+      handler = if Background.disabled
+        [:in_process]
       else
-        config = {}
+        [options.delete(:handler) || config[:handler] || Background::Config.default_handler].flatten
       end
-      #puts config.inspect
-      handler = [options.delete(:handler) || config[:handler] || Background::Config.default_handler].flatten
       reporter = options.delete(:reporter) || config[:reporter] || Background::Config.default_error_reporter
       
       handler.each do |hand|
@@ -170,7 +153,10 @@ module Kernel
         end
         
         begin
-          "Background::#{hand.to_s.camelize}Handler".constantize.handle(locals, options, &block)
+          Background.disable do
+            "Background::#{hand.to_s.camelize}Handler".constantize.handle(locals, options, &block)
+          end
+          
           return hand
         rescue Exception => e
           "Background::#{reporter.to_s.camelize}ErrorReporter".constantize.report(e)
@@ -178,5 +164,9 @@ module Kernel
       end
     end
     nil
+  end
+  
+  def clone_for_background
+    dup
   end
 end

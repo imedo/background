@@ -1,7 +1,4 @@
-require 'rubygems'
-require 'activesupport'
-require 'test/unit'
-require File.dirname(__FILE__) + '/../init'
+require File.expand_path(File.dirname(__FILE__) + '/abstract_unit')
 
 class SomeBackgroundClass
   def add_three(a, b, c)
@@ -22,6 +19,7 @@ class BackgroundTest < Test::Unit::TestCase
   def teardown
     Background::TestHandler.reset
     Background::TestErrorReporter.last_error = nil
+    Background.enable!
   end
   
   def test_should_run_code_block_in_background
@@ -109,5 +107,52 @@ class BackgroundTest < Test::Unit::TestCase
     end
     assert_not_nil Background::TestHandler.options
     assert_equal 2, Background::TestHandler.options[:some_option]
+  end
+  
+  def test_should_correctly_marshal_classes
+    assert_equal SomeBackgroundClass, Marshal.load(Marshal.dump(SomeBackgroundClass.clone_for_background))
+  end
+  
+  def test_should_correctly_marshal_singleton_objects
+    obj = Object.new
+    def obj.some_method
+    end
+    
+    assert Marshal.load(Marshal.dump(obj.clone_for_background))
+  end
+  
+  def test_should_disable_background
+    Background.enable!
+    Background.disable do
+      assert Background.disabled
+    end
+    assert !Background.disabled
+  end
+
+  def test_should_disable_background_if_already_disabled
+    Background.disable!
+    Background.disable do
+      assert Background.disabled
+    end
+    assert Background.disabled
+  end
+  
+  def test_should_reenable_background_when_exception_is_raised_in_block
+    begin
+      Background.disable do
+        raise 'grr'
+      end
+    rescue RuntimeError => e
+      assert_equal 'grr', e.message
+    end
+    
+    assert !Background.disabled
+  end
+  
+  def test_should_disable_background_while_executing_block
+    Background.enable!
+    background :handler => :in_process do
+      assert Background.disabled
+    end
   end
 end
